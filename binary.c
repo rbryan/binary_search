@@ -19,6 +19,7 @@ struct node_t{
 typedef struct node_t node_t;
 
 char *hashdata(void *n,int size);
+node_t *search(node_t *tree,node_t *query);
 
 node_t *new_node(void *data, int size){
 	node_t *new;
@@ -29,7 +30,7 @@ node_t *new_node(void *data, int size){
 	new->size = size;
 	new->left = NULL;
 	new->right = NULL;
-	printf("%s\n",(char*)new->hash);
+//	printf("%s\n",(char*)new->hash);
 	return new;
 
 }
@@ -47,46 +48,87 @@ void print_tree(node_t *head){
 	}
 }
 
-int delete(node_t *tree, node_t *offender){
+node_t *find_parent(node_t *tree,node_t *query){
 	int cmp;
 	node_t *current;
-	node_t *del;
-	current = tree;
-	int flag;
 
-	if(search(tree,offender)==0){
-		fprintf(stderr,"Could not find node to delete.\n");
-		return 0;
-	}
+	current = tree;
 	while(1){
-		cmp = ncmp(current,offender);
+		cmp = ncmp(current,query);
 		if(cmp==0){
-			break;
+			fprintf(stderr,"Somehow on top of query node.\n");
+			return current;
 		}
 		if(cmp > 0){
-			if(ncmp(current->right,offender)==0){
-				flag = 1;      	
-				break;
-			}
+			if(ncmp(current->right,query)==0) break;
 			current = current->right;
 		}
 		if(cmp < 0){
-			if(ncmp(current->left,offender)==0){
-				flag = 0;      	
-				break;
-			}
+			if(ncmp(current->left,query)==0) break;
 			current = current->left;
 		}
 	}
-	if(flag==0)del=current->left;
-	if(flag==1)del=current->right;
-	if(del->left==NULL){
+	return NULL;
+
+
+}
+
+void free_node(node_t *node){
+	free(node->data);
+	free(node->hash);
+	free(node);
+}
+
+void delete(node_t *tree, node_t *offender, node_t *parent){
+	node_t *del;
+
+
+	if((del=search(tree,offender))==NULL){
+		fprintf(stderr,"Could not find node to delete.\n");
+		return;
+	}
+	if(del->right==NULL && del->left==NULL){
+		if(parent != NULL){
+			if(parent->right==del){
+				parent->right=NULL;
+			}else if(parent->left==del){
+				parent->left=NULL;
+			}else{
+				fprintf(stderr,"Parent isn't actually parent. Odd...\n");
+			}
+		}
+		free_node(del);
+		return;
+	}
+	if(del->right==NULL){
+		if(del->left!=NULL){
+			del->size = del->left->size;
+			del->hash = del->left->hash;
+			del->data = del->left->data;
+			delete(del->left,del->left,del);
+		}
+	}else if(del->left==NULL){
+		if(del->right!=NULL){
+			del->size = del->right->size;
+			del->hash = del->right->hash;
+			del->data = del->data;
+			delete(del->right,del->right,del);
+		}
+	}else{
+			del->size = del->right->size;
+			del->hash = del->right->hash;
+			del->data = del->data;
+			delete(del->right,del->right,del);
 		
 	}
+
+	
+
+	
 	
 }
 
-int search(node_t *tree,node_t *query){
+node_t *search(node_t *tree,node_t *query){
 	int cmp;
 	node_t *current;
 	
@@ -94,7 +136,7 @@ int search(node_t *tree,node_t *query){
 	while(1){
 		cmp = ncmp(current,query);
 		if(cmp==0){
-			return 1;
+			return current;
 		}
 		if(cmp > 0){
 			if(current->right==NULL) break;
@@ -105,7 +147,7 @@ int search(node_t *tree,node_t *query){
 			current = current->left;
 		}
 	}
-	return 0;
+	return NULL;
 }
 
 int insert_word(node_t **tree,void *data,int size){
@@ -205,10 +247,21 @@ int main(int argc, char **argv){
 	size_t t;
 	printf("%s\n",hashdata((void *)"asdfasdf",8));
 	tree = load_dictionary("random_words.txt");
+	printf("Input a word to search for:");
 	getline(&buffer,&t,stdin);
 	new = new_node((void*)buffer,strlen(buffer));
-	printf("%s\n",(char*) new->hash);
-	printf("%d\n",search(tree,new));
+	//printf("%s\n",(char*) new->hash);
+	if(search(tree,new)){
+		printf("%s found\n",buffer);
+	}
+	printf("deleting %s\n",buffer);
+	delete(tree,new,NULL);
+	if(search(tree,new)){
+		printf("%s found\n",buffer);
+	}else{
+		printf("Did not find %s\n",buffer);
+	}
+	
 
 
 
