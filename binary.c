@@ -12,6 +12,7 @@ struct node_t {
     int size;
     void *data;
     char *hash;
+    struct node_t *parent;
     struct node_t *left;
     struct node_t *right;
 };
@@ -47,7 +48,7 @@ void print_tree(node_t * head)
 		return;
 
 	printf("(");
-    printf("%s\n", (char *) head->data);
+    printf("%s", (char *) head->data);
     if (head->left != NULL) {
 	print_tree(head->left);
     }
@@ -58,7 +59,7 @@ void print_tree(node_t * head)
 }
 
 
-//This function isn't really used for anything I don't think. Candidate for trimming.
+//This function isn't really used for anything I don't think. Not sure it works. Candidate for trimming.
 node_t *find_parent(node_t * tree, node_t * query)
 {
     int cmp;
@@ -94,50 +95,33 @@ void free_node(node_t * node)
     free(node);
 }
 
-void delete(node_t * tree, node_t * offender, node_t * parent)
+node_t *get_next_largest(node_t *n){
+	if(n->left==NULL)return NULL;
+	n = n->left;
+	while(n->right != NULL)n = n->right;
+	return n;
+}
+
+void delete(node_t ** tree, node_t * offender, node_t * parent)
 {
     node_t *del;
-
+    node_t *par;
 
     if ((del = search(tree, offender)) == NULL) {
 	fprintf(stderr, "Could not find node to delete.\n");
 	return;
     }
-    if (del->right == NULL && del->left == NULL) {
-	if (parent != NULL) {
-	    if (parent->right == del) {
-		parent->right = NULL;
-	    } else if (parent->left == del) {
-		parent->left = NULL;
-	    } else {
-		fprintf(stderr, "Parent isn't actually parent. Odd...\n");
-	    }
-	}
-	free_node(del);
-	return;
-    }
-    if (del->right == NULL) {
-	if (del->left != NULL) {
-	    del->size = del->left->size;
-	    del->hash = del->left->hash;
-	    del->data = del->left->data;
-	    delete(del->left, del->left, del);
-	}
-    } else if (del->left == NULL) {
-	if (del->right != NULL) {
-	    del->size = del->right->size;
-	    del->hash = del->right->hash;
-	    del->data = del->data;
-	    delete(del->right, del->right, del);
-	}
-    } else {
-	del->size = del->right->size;
-	del->hash = del->right->hash;
-	del->data = del->data;
-	delete(del->right, del->right, del);
+    
+    par = del->parent;
 
-    }
+    node_t *next_largest;
 
+    next_largest = get_next_largest(node_t *n);
+    
+    if(par==NULL){
+	
+    }
+    
 
 
 
@@ -192,6 +176,7 @@ int insert_word(node_t ** tree, void *data, int size)
 		current = current->right;
 	    } else {
 		current->right = new;
+		new->parent = current;
 		return 1;
 	    }
 	}
@@ -200,6 +185,7 @@ int insert_word(node_t ** tree, void *data, int size)
 		current = current->left;
 	    } else {
 		current->left = new;
+		new->parent = current;
 		return 1;
 	    }
 	}
@@ -274,6 +260,74 @@ void print_menu(){
 	return;
 }
 
+void swap(node_t *a, node_t *b){
+	int temp;
+	void *td;
+	char *th;
+
+	temp = b->size;
+	b->size = a->size;
+	a->size = temp;
+
+	td = b->data;
+	b->data = a->data;
+	a->data = td;
+	
+	th = b->hash;
+	b->hash = a->hash;
+	a->hash = th;
+
+}
+
+void rrotate(node_t *tree,node_t *selected){
+	node_t *temp;
+	if(selected->parent->left==selected){
+		selected->parent->left = selected->left;
+		selected->left->parent = selected->parent;
+		selected->parent = selected->left;
+		temp = selected->left;
+		selected->left = temp->right;
+		temp->right->parent = selected;
+		temp->right = selected;
+		selected->parent = temp;
+	}else{
+
+		selected->parent->right = selected->left;
+		selected->left->parent = selected->parent;
+		selected->parent = selected->left;
+		temp = selected->left;
+		selected->left = temp->right;
+		temp->right->parent = selected;
+		temp->right = selected;
+		selected->parent = temp;
+
+	}
+}
+
+void lrotate(node_t *tree,node_t *selected){
+	node_t *temp;
+	if(selected->parent->right==selected){
+		selected->parent->right = selected->right;
+		selected->right->parent = selected->parent;
+		selected->parent = selected->right;
+		temp = selected->right;
+		selected->right = temp->right;
+		temp->left->parent = selected;
+		temp->left = selected;
+		selected->parent = temp;
+	}else{
+
+		selected->parent->left = selected->right;
+		selected->right->parent = selected->parent;
+		selected->parent = selected->right;
+		temp = selected->right;
+		selected->right = temp->right;
+		temp->right->parent = selected;
+		temp->right = selected;
+		selected->parent = temp;
+
+	}
+}
 int main(int argc, char **argv)
 {
 
@@ -304,29 +358,67 @@ int main(int argc, char **argv)
 	print_menu();
 	while(1){
 		int k;
+		node_t *new;
 		char *buffer=NULL;
 		size_t t;
+		node_t *selected;
 		k = getchar(); 
 		switch(k){
 			case('q'):
 				exit(0);
 				break;
 			case('l'):
+				getchar();
+				printf("Input a word to search:");
+				getline(&buffer,&t,stdin);
+				new = new_node((void *)buffer,strlen(buffer));
+				selected = search(tree,new);
+				if(selected==NULL){
+					printf("Node not found.\n");
+					break;
+				}
+				lrotate(tree,selected);
 				break;
 			case('r'):
+
+				getchar();
+				printf("Input a word to search:");
+				getline(&buffer,&t,stdin);
+				new = new_node((void *)buffer,strlen(buffer));
+				selected = search(tree,new);
+				if(selected==NULL){
+					printf("Node not found.\n");
+					break;
+				}
+				rrotate(tree,selected);
 				break;
 			case('p'):
 				print_tree(tree);
 				break;
 			case('s'):
+				
+				getchar();
+				printf("Input a word to search:");
+				getline(&buffer,&t,stdin);
+				new = new_node((void *)buffer,strlen(buffer));
+				if(search(tree,new)==NULL){
+					printf("Word not found.\n");
+				}else{
+					printf("Found word.\n");
+				}
 				break;
 			case('d'):
+				getchar();
+				printf("Input a word to delete:");
+				getline(&buffer,&t,stdin);
+				new = new_node(buffer,strlen(buffer));
+				delete(tree,new,NULL);
 				break;
 			case('a'):
 				getchar();//eats the newline
 				printf("Input a word to add:");
 				getline(&buffer,&t,stdin);
-				insert_word(&tree,buffer,t);
+				insert_word(&tree,buffer,strlen(buffer));
 				break;
 			default:
 				continue;
